@@ -8,7 +8,7 @@ It solves one specific problem:
 
 Rowio Free focuses purely on **frontend behavior**. Backend helpers, validation, and calculations are provided by **Rowio Pro**.
 
-[Demo page here](https://rowio.softicraft.com){:target="_blank"}
+[Demo page here](https://rowio.softicraft.com)
 
 ---
 
