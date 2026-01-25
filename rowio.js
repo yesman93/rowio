@@ -14,53 +14,49 @@
  *   - rowio:copy-down -> then rowio:change
  *
  * Notes:
- * - Rowio does NOT sanitize JSON prefill values (document this in README)
+ * - Rowio does NOT sanitize JSON prefill values
  * - WYSIWYG/editor init is handled by userland listeners (Rowio only emits events)
  *
  * Naming convention (required for reindex + harvesting):
  *   prefix__field__0
+ *   prefix__field__1
+ *   ...
  *
- * @author TB
- * @date 24.1.2026
+ *   Where:
+ *   - prefix = data-rowio-prefix on wrapper
+ *   - field  = field name
+ *   - 0,1,... = row index
+ *
+ *   Example:
+ *   data-rowio-prefix="invoice-items"
+ *   name="invoice-items__description__0"
+ *   name="invoice-items__amount__0"
+ *   name="invoice-items__description__1"
+ *   name="invoice-items__amount__1"
  */
 Object.defineProperty(window, 'Rowio', {
 
     /**
-     * Prevents reconfiguration of the 'Rowio' property on window.
-     *
-     * @author TB
-     * @date 24.1.2026
+     * Prevents reconfiguration of the 'Rowio' property on window
      *
      * @type {Boolean}
      */
     configurable: false,
 
     /**
-     * Prevents overwriting the 'Rowio' property on window.
-     *
-     * @author TB
-     * @date 24.1.2026
+     * Prevents enumeration of the 'Rowio' property on window
      *
      * @type {Boolean}
      */
-    writable: false,
+    enumerable: false,
 
     /**
-     * Lazy singleton getter (Modalio/Loast style).
+     * Lazy singleton getter for Rowio
      *
-     * @author TB
-     * @date 24.1.2026
+     * @returns {Object} Rowio singleton instance
      */
     get: (function () {
 
-        /**
-         * Internal cached instance of the Rowio singleton.
-         *
-         * @author TB
-         * @date 24.1.2026
-         *
-         * @type {Object|null}
-         */
         let _instance = null;
 
         return function () {
@@ -72,427 +68,266 @@ Object.defineProperty(window, 'Rowio', {
             _instance = {
 
                 /**
-                 * Instances registry (key -> instance)
-                 * Key = override key (data-rowio-key) or prefix (data-rowio-prefix).
+                 * Rowio instances registry
                  *
-                 * @author TB
-                 * @date 24.1.2026
-                 *
-                 * @type {Object.<string, Object>}
+                 * @type {Object}
                  */
                 instances: {},
 
                 /**
-                 * Initializes all Rowio components found on page.
+                 * Normalize target into an array of wrapper elements
                  *
-                 * @author TB
-                 * @date 24.1.2026
+                 * @param target
                  *
-                 * @returns {void}
+                 * @returns {Array} Array of HTMLElements
+                 *
+                 * @private
                  */
-                init: function () {
+                _normalize_wrappers: function (target) {
 
-                    const wrappers = document.querySelectorAll('.rowio');
-                    if (!wrappers.length) {
-                        return;
+                    let elements = [];
+
+                    // No target provided, look for all elements with .rowio class
+                    if (typeof target === 'undefined' || target === null) {
+
+                        elements = Array.from(document.querySelectorAll('.rowio'));
+
+                        return Array.from(new Set(elements));
                     }
 
-                    wrappers.forEach((wrapper) => {
+                    // Target is a CSS selector, find all matching elements
+                    if (typeof target === 'string') {
 
-                        // prevent double init
-                        if (wrapper.dataset.rowioInited === '1') {
-                            return;
-                        }
+                        elements = Array.from(document.querySelectorAll(target))
+                            .filter( element => element instanceof HTMLElement) // Keep only HTMLElements
+                            .filter( element => element.classList.contains('rowio') ); // Keep only .rowio elements
 
-                        const instance = this._create_instance(wrapper);
-                        if (!instance) {
-                            return;
-                        }
+                        // Remove duplicates
+                        return Array.from(new Set(elements));
+                    }
 
-                        this.instances[instance.key] = instance;
-                        wrapper.dataset.rowioInited = '1';
+                    // Target is single HTMLElement
+                    if (target instanceof HTMLElement) {
 
-                        instance._init();
-                    });
+                        elements = [target]
+                            .filter( element => element.classList.contains('rowio') ); // Keep only .rowio elements
+
+                        return elements;
+                    }
+
+                    // Target is multiple HTMLElements, sanitize the list
+                    if (Array.isArray(target) || target instanceof NodeList || target instanceof HTMLCollection) {
+
+                        elements = Array.from(target)
+                            .filter( element => element instanceof HTMLElement ) // Keep only HTMLElements
+                            .filter( element => element.classList.contains('rowio') ); // Keep only .rowio elements
+
+                        // Remove duplicates
+                        return Array.from(new Set(elements));
+                    }
+
+                    return [];
                 },
 
                 /**
-                 * Returns an instance by key (override key or prefix).
+                 * Convert given value to integer, return default if conversion fails or value is negative
                  *
-                 * Usage:
-                 *   const instance = window.Rowio.get('invoice-items');
+                 * @param value
+                 * @param default_value
                  *
-                 * @author TB
-                 * @date 24.1.2026
+                 * @returns {Number}
                  *
-                 * @param {String} key
-                 * @returns {Object|null}
+                 * @private
                  */
-                get: function (key) {
+                _to_int: function (value, default_value) {
 
-                    if (!key || typeof key !== 'string') {
-                        return null;
+                    const number = parseInt(value, 10);
+                    if (Number.isNaN(number) || number < 0) {
+                        return default_value;
                     }
 
-                    return this.instances[key] ? this.instances[key] : null;
+                    return number;
                 },
 
                 /**
-                 * Creates a Rowio instance for a wrapper.
-                 *
-                 * @author TB
-                 * @date 24.1.2026
+                 * Create a Rowio instance for given wrapper element
                  *
                  * @param {HTMLElement} wrapper
-                 * @returns {Object|null}
+                 *
+                 * @returns {Object} Rowio instance object or null on failure
+                 *
+                 * @private
                  */
                 _create_instance: function (wrapper) {
 
-                    if (!wrapper || !(wrapper instanceof HTMLElement)) {
+                    if (!wrapper || !wrapper instanceof HTMLElement) {
                         return null;
                     }
 
                     const template = wrapper.querySelector('template.rowio-template');
-                    const rows_container = wrapper.querySelector('.rowio-rows');
-
                     if (!template) {
-                        // template is required
+                        console.error('Rowio instance creation failed: No template found in wrapper', wrapper);
                         return null;
                     }
 
+                    let rows_container = wrapper.querySelector('.rowio-rows');
                     if (!rows_container) {
-                        // rows container is required
-                        return null;
+
+                        rows_container = document.createElement('div');
+                        rows_container.classList.add('rowio-rows');
+
+                        template.insertAdjacentElement('afterend', rows_container);
+
+                        console.info('Rowio: Created missing .rowio-rows container in wrapper', wrapper);
                     }
 
                     const prefix = (wrapper.dataset.rowioPrefix || '').trim();
                     const shown = this._to_int(wrapper.dataset.rowioShown, 1);
                     const max = this._to_int(wrapper.dataset.rowioMax, 0); // 0 = unlimited
-                    const copydown = (wrapper.dataset.rowioCopydown || '').trim();
+                    const copy_down = (wrapper.dataset.rowioCopyDown || '').trim();
 
                     const override_key = (template.dataset.rowioKey || '').trim();
                     const key = override_key.length ? override_key : prefix;
 
                     if (!key.length) {
-                        // cannot register instance without key
+                        console.error('Rowio instance creation failed: No key defined for instance in wrapper', wrapper);
                         return null;
                     }
 
                     return {
 
                         /**
-                         * Instance key (override key or prefix).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Unique key of the Rowio instance
                          *
                          * @type {String}
                          */
                         key: key,
 
                         /**
-                         * Name prefix (usually equals wrapper data-rowio-prefix).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Prefix for input names
                          *
                          * @type {String}
                          */
                         prefix: prefix,
 
                         /**
-                         * Wrapper element (event target).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Wrapper element
                          *
                          * @type {HTMLElement}
                          */
                         wrapper: wrapper,
 
                         /**
-                         * Template element (source of row markup & JSON config).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Template element
                          *
                          * @type {HTMLTemplateElement}
                          */
                         template: template,
 
                         /**
-                         * Rows container (render target).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Rows container element
                          *
                          * @type {HTMLElement}
                          */
                         rows_container: rows_container,
 
                         /**
-                         * Initially shown rows (used only if no JSON prefill).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Number of rows to show initially
                          *
                          * @type {Number}
                          */
                         shown: shown,
 
                         /**
-                         * Max rows (0 means unlimited).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Maximum number of rows allowed (0 = unlimited)
                          *
                          * @type {Number}
                          */
                         max: max,
 
                         /**
-                         * Copy-down enabled field names list, comma-separated.
-                         * Example: "email,vat_id"
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Copy down selector
                          *
                          * @type {String}
                          */
-                        copydown: copydown,
+                        copy_down: copy_down,
 
                         /**
-                         * Override key (template data-rowio-key).
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Override key for the instance (if any)
                          *
                          * @type {String}
                          */
                         override_key: override_key,
 
                         /**
-                         * Internal cached template row element.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Template row clone
                          *
                          * @type {HTMLElement|null}
                          */
                         _template_row: null,
 
                         /**
-                         * Internal JSON prefill data.
+                         * Prefill data for the instance
                          *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @type {Array|null}
+                         * @type {Object|null}
                          */
                         _prefill_data: null,
 
                         /**
-                         * Initializes the instance.
+                         * Initialize the Rowio instance
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @return {void}
                          *
-                         * @returns {void}
+                         * @private
                          */
                         _init: function () {
 
-                            this._ensure_override_hidden();
+                            // Reading
                             this._cache_template_row();
-                            this._read_prefill_json();
+                            this._read_prefill_data();
 
+                            // Building
+                            this._ensure_override_hidden();
                             this._bind_events();
                             this._render_initial_rows();
-                            this._setup_copydown_controls();
+                            this._setup_copy_down_controls();
 
-                            // ready event
-                            this._emit('rowio:ready', {
-                                row: null,
-                                index: null
-                            });
-                        },
-
-                        /**
-                         * Adds a row at the end.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {Object|null} row_data
-                         * @returns {HTMLElement|null}
-                         */
-                        add_row: function (row_data) {
-
-                            if (this.max > 0 && this.get_rows_count() >= this.max) {
-                                return null;
-                            }
-
-                            const row = this._clone_template_row();
-                            if (!row) {
-                                return null;
-                            }
-
-                            this.rows_container.appendChild(row);
-
-                            // reindex always (names/ids/for)
-                            this._reindex_rows();
-
-                            // apply defaults and/or prefill
-                            if (row_data && typeof row_data === 'object') {
-                                this._fill_row_from_data(row, row_data);
-                            } else {
-                                this._apply_defvals(row);
-                            }
-
-                            const index = this._get_row_index(row);
-
-                            this._emit('rowio:row-add', this._make_payload(row, index));
-                            this._emit('rowio:change', this._make_payload(row, index));
-
-                            return row;
-                        },
-
-                        /**
-                         * Removes a row by index or by row element.
-                         * Hard remove + full reindex.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {Number|HTMLElement} row_or_index
-                         * @returns {Boolean}
-                         */
-                        remove_row: function (row_or_index) {
-
-                            const rows = this._get_rows();
-                            if (!rows.length) {
-                                return false;
-                            }
-
-                            // always keep at least 1 row
-                            if (rows.length <= 1) {
-                                return false;
-                            }
-
-                            let row = null;
-
-                            if (typeof row_or_index === 'number') {
-                                row = rows[row_or_index] ? rows[row_or_index] : null;
-                            } else if (row_or_index instanceof HTMLElement) {
-                                row = row_or_index;
-                            }
-
-                            if (!row) {
-                                return false;
-                            }
-
-                            const removed_index = this._get_row_index(row);
-
-                            row.remove();
-
-                            // reindex remaining rows
-                            this._reindex_rows();
-
-                            this._emit('rowio:row-remove', {
+                            // Let the world know we're ready
+                            this._emit_event('rowio:ready', {
                                 instance: this,
-                                row: null,
-                                index: removed_index,
-                                fields: {},
-                                editors: []
+                                rows_count: this.get_rows_count(),
+                                rows: this._get_rows(),
                             });
-                            this._emit('rowio:change', {
-                                instance: this,
-                                row: null,
-                                index: removed_index,
-                                fields: {},
-                                editors: []
-                            });
-
-                            // copydown controls need to exist on first visible row
-                            this._setup_copydown_controls();
-
-                            return true;
                         },
 
                         /**
-                         * Returns current visible rows count.
+                         * Ensure override hidden input exists in the wrapper if override key is defined
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @return {void}
                          *
-                         * @returns {Number}
-                         */
-                        get_rows_count: function () {
-                            return this._get_rows().length;
-                        },
-
-                        /**
-                         * Returns rows data as array of objects: [{field: value, ...}, ...]
-                         * Uses parsed field names from input "name" attributes.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @returns {Array}
-                         */
-                        get_data: function () {
-
-                            const rows = this._get_rows();
-                            const out = [];
-
-                            rows.forEach((row) => {
-                                const payload = this._make_payload(row, this._get_row_index(row));
-                                const obj = {};
-
-                                Object.keys(payload.fields).forEach((field) => {
-                                    const el_or_arr = payload.fields[field];
-
-                                    if (Array.isArray(el_or_arr)) {
-                                        obj[field] = el_or_arr.map((el) => this._read_value(el));
-                                    } else {
-                                        obj[field] = this._read_value(el_or_arr);
-                                    }
-                                });
-
-                                out.push(obj);
-                            });
-
-                            return out;
-                        },
-
-                        /**
-                         * Ensures hidden input mapping override key for harvester:
-                         * __rowio_key__{prefix} = {override_key}
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @returns {void}
+                         * @private
                          */
                         _ensure_override_hidden: function () {
 
                             if (!this.override_key.length) {
+                                console.info('Rowio instance override hidden not needed: No override key defined for instance', this);
                                 return;
                             }
 
                             if (!this.prefix.length) {
-                                // cannot map without prefix
+                                console.error('Rowio instance override hidden creation failed: No prefix defined for instance', this);
                                 return;
                             }
 
                             const name = '__rowio_key__' + this.prefix;
 
-                            // already present?
-                            if (this.wrapper.querySelector('input[type="hidden"][name="' + CSS.escape(name) + '"]')) {
+                            if (this.wrapper.querySelector(`input[type="hidden"][name="${CSS.escape(name)}"]`)) {
                                 return;
                             }
 
                             const input = document.createElement('input');
                             input.type = 'hidden';
+                            input.id = name;
                             input.name = name;
                             input.value = this.override_key;
 
@@ -500,23 +335,23 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Caches the row element from template.
+                         * Cache template row element for future cloning
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @return {void}
                          *
-                         * @returns {void}
+                         * @private
                          */
                         _cache_template_row: function () {
 
-                            // template.content is a DocumentFragment
                             const content = this.template.content;
                             if (!content) {
+                                console.error('Rowio instance template row caching failed: No content in template', this);
                                 return;
                             }
 
                             const row = content.querySelector('.rowio-row');
                             if (!row) {
+                                console.error('Rowio instance template row caching failed: No .rowio-row found in template content', this);
                                 return;
                             }
 
@@ -524,81 +359,93 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Reads JSON prefill data from:
-                         * <script type="application/json" class="rowio-data">[...]</script>
-                         * placed inside template.
+                         * Read prefill data from template script tag and its content parsed as JSON
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @return {void}
                          *
-                         * @returns {void}
+                         * @private
                          */
-                        _read_prefill_json: function () {
+                        _read_prefill_data: function () {
 
                             const script = this.template.content
                                 ? this.template.content.querySelector('script.rowio-data[type="application/json"]')
                                 : null;
 
                             if (!script) {
+                                console.info('Rowio instance prefill data not found: No script.rowio-data found in template', this);
                                 this._prefill_data = null;
                                 return;
                             }
 
-                            const raw = (script.textContent || '').trim();
-                            if (!raw.length) {
+                            const raw_data = (script.textContent || '').trim();
+                            if (!raw_data.length) {
+                                console.info('Rowio instance prefill data not found in template (no valid content)', this);
                                 this._prefill_data = null;
                                 return;
                             }
 
                             try {
-                                const parsed = JSON.parse(raw);
+                                const parsed = JSON.parse(raw_data);
                                 this._prefill_data = Array.isArray(parsed) ? parsed : null;
                             } catch (e) {
+                                console.error('Rowio instance prefill data parsing failed: Invalid JSON in script.rowio-data', this, e);
                                 this._prefill_data = null;
                             }
                         },
 
                         /**
-                         * Binds click handlers on wrapper (event delegation).
+                         * Bind events to the instance wrapper
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @return {void}
                          *
-                         * @returns {void}
+                         * @private
                          */
                         _bind_events: function () {
 
-                            // bind only once per instance
-                            if (this.wrapper.dataset.rowioBound === '1') {
+                            // Bind only once per instance
+                            if (this.wrapper.dataset.rowioEventsBound === '1') {
                                 return;
                             }
-                            this.wrapper.dataset.rowioBound = '1';
 
-                            this.wrapper.addEventListener('click', (e) => {
+                            this.wrapper.dataset.rowioEventsBound = '1';
 
-                                const add_btn = e.target.closest('.rowio-add');
-                                if (add_btn && this.wrapper.contains(add_btn)) {
+                            this.wrapper.addEventListener('click', e => {
+
+                                // Add a new row
+                                const btn_add = e.target.closest('.rowio-add');
+                                if (btn_add && this.wrapper.contains(btn_add)) {
+
                                     e.preventDefault();
+
                                     this.add_row(null);
-                                    this._setup_copydown_controls();
+                                    this._setup_copy_down_controls();
+
                                     return;
                                 }
 
-                                const remove_btn = e.target.closest('.rowio-remove');
-                                if (remove_btn && this.wrapper.contains(remove_btn)) {
+                                // Remove a row
+                                const btn_remove = e.target.closest('.rowio-remove');
+                                if (btn_remove && this.wrapper.contains(btn_remove)) {
+
                                     e.preventDefault();
-                                    const row = remove_btn.closest('.rowio-row');
+
+                                    const row = btn_remove.closest('.rowio-row');
                                     if (row) {
                                         this.remove_row(row);
                                     }
+
                                     return;
                                 }
 
-                                const cd_btn = e.target.closest('.rowio-copydown');
-                                if (cd_btn && this.wrapper.contains(cd_btn)) {
+                                // Copy down value
+                                const btn_copy_down = e.target.closest('.rowio-copy-down');
+                                if (btn_copy_down && this.wrapper.contains(btn_copy_down)) {
+
                                     e.preventDefault();
-                                    const field = (cd_btn.dataset.rowioField || '').trim();
-                                    const row = cd_btn.closest('.rowio-row');
+
+                                    const field = (btn_copy_down.dataset.rowioField || '').trim();
+                                    const row = btn_copy_down.closest('.rowio-row');
+
                                     if (field.length && row) {
                                         this._copy_down(field, row);
                                     }
@@ -607,160 +454,137 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Renders initial rows based on JSON or shown count.
+                         * Add a new row
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @param {Object|null} data
                          *
-                         * @returns {void}
+                         * @returns {Node|null}
                          */
-                        _render_initial_rows: function () {
+                        add_row: function (data) {
 
-                            // clear any existing rows (Rowio owns rendering)
-                            this.rows_container.innerHTML = '';
-
-                            if (this._prefill_data && this._prefill_data.length) {
-
-                                // respect max
-                                const limit = (this.max > 0)
-                                    ? Math.min(this._prefill_data.length, this.max)
-                                    : this._prefill_data.length;
-
-                                for (let i = 0; i < limit; i += 1) {
-                                    this.add_row(this._prefill_data[i]);
-                                }
-
-                                return;
+                            if (this.max > 0 && this.get_rows_count() >= this.max) {
+                                console.info('Rowio instance add_row: Maximum number of rows reached', this);
+                                return null;
                             }
 
-                            // fallback to shown count (min is always 1)
-                            const count = Math.max(1, this.shown);
-                            for (let i = 0; i < count; i += 1) {
-                                this.add_row(null);
+                            const row = this._clone_template_row();
+                            if (!row) {
+                                // Eventual errors already logged in _clone_template_row()
+                                return null;
                             }
+
+                            this.rows_container.appendChild(row);
+
+                            // Always reindex (names/ids/for)
+                            this._reindex_rows();
+
+                            // Apply default values and/or prefill data
+                            if (data && typeof data === 'object') {
+                                this._prefill_row_from_data(row, data);
+                            } else {
+                                this._apply_default_values(row);
+                            }
+
+                            const index = this._get_row_index(row);
+
+                            this._emit_event('rowio:row-add', this._make_payload(row, index));
+                            this._emit_event('rowio:change', this._make_payload(row, index));
+
+                            return row;
                         },
 
                         /**
-                         * Creates copydown controls for configured fields
-                         * on the first row (if not already present).
+                         * Remove given row
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @param {HTMLElement} row
                          *
                          * @returns {void}
                          */
-                        _setup_copydown_controls: function () {
+                        remove_row: function (row) {
 
-                            // remove existing controls to avoid duplicates
-                            this.wrapper.querySelectorAll('.rowio-copydown').forEach((x) => x.remove());
-
-                            const fields = this._parse_csv(this.copydown);
-                            if (!fields.length) {
+                            if (!row || !row instanceof HTMLElement) {
+                                console.error('Rowio instance remove_row: Invalid row element', this);
                                 return;
                             }
 
                             const rows = this._get_rows();
                             if (!rows.length) {
+                                console.error('Rowio instance remove_row: No rows found in instance', this);
                                 return;
                             }
 
-                            const first_row = rows[0];
-                            const payload = this._make_payload(first_row, 0);
+                            // Always keep at least 1 row
+                            if (rows.length <= 1) {
+                                console.info('Rowio instance remove_row: At least one row must remain', this);
+                                return;
+                            }
 
-                            fields.forEach((field) => {
+                            const index = this._get_row_index(row);
 
-                                const el_or_arr = payload.fields[field] ? payload.fields[field] : null;
-                                const el = Array.isArray(el_or_arr) ? el_or_arr[0] : el_or_arr;
+                            row.remove();
 
-                                if (!el) {
-                                    return;
-                                }
+                            // Reindex remaining rows
+                            this._reindex_rows();
 
-                                // create button next to the input (simple and framework-agnostic)
-                                const btn = document.createElement('button');
-                                btn.type = 'button';
-                                btn.className = 'rowio-copydown';
-                                btn.dataset.rowioField = field;
-                                btn.setAttribute('aria-label', 'Copy down: ' + field);
-                                btn.innerHTML = '↓';
-
-                                // insert right after element
-                                el.insertAdjacentElement('afterend', btn);
+                            // Emit events
+                            this._emit_event('rowio:row-remove', {
+                                instance: this,
+                                row: null,
+                                index: index,
+                                fields: {},
+                                editors: []
                             });
+                            this._emit_event('rowio:change', {
+                                instance: this,
+                                row: null,
+                                index: index,
+                                fields: {},
+                                editors: []
+                            });
+
+                            // Copy down controls need to exist on first visible row - re-setup them
+                            this._setup_copy_down_controls();
                         },
 
                         /**
-                         * Copies a field value from the given row down to subsequent rows.
-                         * Emits rowio:copy-down and rowio:change.
+                         * Get all rows as an array
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @returns {Array} Array of HTMLElements
                          *
-                         * @param {String} field
-                         * @param {HTMLElement} source_row
-                         * @returns {void}
+                         * @private
                          */
-                        _copy_down: function (field, source_row) {
-
-                            const rows = this._get_rows();
-                            if (!rows.length) {
-                                return;
-                            }
-
-                            const source_index = this._get_row_index(source_row);
-                            if (source_index === null) {
-                                return;
-                            }
-
-                            const source_payload = this._make_payload(source_row, source_index);
-                            const source_el_or_arr = source_payload.fields[field] ? source_payload.fields[field] : null;
-                            const source_el = Array.isArray(source_el_or_arr) ? source_el_or_arr[0] : source_el_or_arr;
-
-                            if (!source_el) {
-                                return;
-                            }
-
-                            const source_value = this._read_value(source_el);
-
-                            // apply to next rows only
-                            for (let i = source_index + 1; i < rows.length; i += 1) {
-
-                                const row = rows[i];
-                                const payload = this._make_payload(row, i);
-                                const el_or_arr = payload.fields[field] ? payload.fields[field] : null;
-
-                                if (!el_or_arr) {
-                                    continue;
-                                }
-
-                                const targets = Array.isArray(el_or_arr) ? el_or_arr : [el_or_arr];
-                                targets.forEach((target) => {
-                                    this._write_value(target, source_value);
-                                });
-                            }
-
-                            this._emit('rowio:copy-down', this._make_payload(source_row, source_index));
-                            this._emit('rowio:change', this._make_payload(source_row, source_index));
+                        _get_rows: function () {
+                            return Array.from(this.rows_container.querySelectorAll('.rowio-row'));
                         },
 
                         /**
-                         * Clones the template row element.
+                         * Get all rows count
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @returns {number}
+                         */
+                        get_rows_count: function () {
+                            return this._get_rows().length;
+                        },
+
+                        /**
+                         * Clone template row node
                          *
-                         * @returns {HTMLElement|null}
+                         * @returns {Node|null}
+                         *
+                         * @private
                          */
                         _clone_template_row: function () {
 
                             if (!this._template_row) {
+                                console.error('Rowio row clone: No template row', this);
                                 return null;
                             }
 
                             const row = this._template_row.cloneNode(true);
 
-                            // ensure it's an element
-                            if (!(row instanceof HTMLElement)) {
+                            // Ensure it's an element
+                            if (!row instanceof HTMLElement) {
+                                console.error('Rowio row clone: Cloned node is not an HTMLElement', this);
                                 return null;
                             }
 
@@ -768,252 +592,355 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Applies data-rowio-defval defaults for inputs/selects/textareas/contenteditable.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} row
-                         * @returns {void}
-                         */
-                        _apply_defvals: function (row) {
-
-                            const els = this._get_row_fields_elements(row);
-
-                            els.forEach((el) => {
-
-                                const defval = (el.dataset.rowioDefval || '').toString();
-
-                                // if no defval, clear inputs (keep blank template behavior)
-                                if (!defval.length) {
-                                    // do not wipe buttons, etc.
-                                    if (this._is_value_element(el)) {
-                                        this._write_value(el, '');
-                                    }
-                                    return;
-                                }
-
-                                this._write_value(el, defval);
-                            });
-                        },
-
-                        /**
-                         * Fills row from JSON data object by field names.
-                         * Only fills fields that exist in row; unknown keys are ignored.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} row
-                         * @param {Object} data
-                         * @returns {void}
-                         */
-                        _fill_row_from_data: function (row, data) {
-
-                            // first apply defaults to get deterministic baseline
-                            this._apply_defvals(row);
-
-                            const payload = this._make_payload(row, this._get_row_index(row));
-
-                            Object.keys(data).forEach((field) => {
-
-                                if (!payload.fields[field]) {
-                                    return;
-                                }
-
-                                const el_or_arr = payload.fields[field];
-                                const targets = Array.isArray(el_or_arr) ? el_or_arr : [el_or_arr];
-
-                                targets.forEach((target) => {
-                                    this._write_value(target, data[field]);
-                                });
-                            });
-                        },
-
-                        /**
-                         * Reindexes all rows: updates name/id and label[for].
-                         * Index starts at 0.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Reindex all rows in the instance (names, ids, for attributes)
                          *
                          * @returns {void}
+                         *
+                         * @private
                          */
                         _reindex_rows: function () {
 
                             const rows = this._get_rows();
                             if (!rows.length) {
+                                console.info('Rowio instance reindex: No rows found in template', this);
                                 return;
                             }
 
-                            rows.forEach((row, new_index) => {
+                            rows.forEach( (row, new_index) => {
 
-                                // update fields inside row
-                                const els = this._get_row_fields_elements(row);
+                                const elements = this._get_row_field_elements(row);
 
-                                els.forEach((el) => {
+                                // Update fields inside row
+                                elements.forEach( element => {
 
-                                    // Prefer name; fallback to id
-                                    const name = (el.getAttribute('name') || '').trim();
-                                    const id = (el.getAttribute('id') || '').trim();
+                                    const name = (element.getAttribute('name') || '').trim();
+                                    const id = (element.getAttribute('id') || '').trim();
 
-                                    // update name
+                                    // Update name
                                     if (name.length) {
 
                                         const parsed = this._parse_key(name);
                                         if (parsed) {
-                                            const new_name = parsed.prefix + '__' + parsed.field + '__' + new_index;
-                                            el.setAttribute('name', new_name);
+                                            const new_name = `${parsed.prefix}__${parsed.field}__${new_index}`;
+                                            element.setAttribute('name', new_name);
                                         }
                                     }
 
-                                    // update id
+                                    // Update id
                                     if (id.length) {
 
                                         const parsed = this._parse_key(id);
                                         if (parsed) {
 
                                             const old_id = id;
-                                            const new_id = parsed.prefix + '__' + parsed.field + '__' + new_index;
+                                            const new_id = `${parsed.prefix}__${parsed.field}__${new_index}`;
 
-                                            el.setAttribute('id', new_id);
+                                            element.setAttribute('id', new_id);
 
-                                            // update labels inside row that reference this id
-                                            row.querySelectorAll('label[for="' + CSS.escape(old_id) + '"]').forEach((lab) => {
-                                                lab.setAttribute('for', new_id);
+                                            // Update labels inside row that reference this id
+                                            row.querySelectorAll(`label[for="${CSS.escape(old_id)}"]`).forEach( label => {
+                                                label.setAttribute('for', new_id);
                                             });
                                         }
                                     }
                                 });
                             });
 
-                            // after reindex, enforce add/remove disabled states if you want (optional)
-                            this._update_buttons_state();
+                            // TODO: resolve this
+                            //      After reindex, enforce add/remove disabled states
+                            //      this._update_buttons_state();
                         },
 
                         /**
-                         * Updates add/remove buttons disabled state.
-                         * - remove disabled if only 1 row left
-                         * - add disabled if max reached
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @returns {void}
-                         */
-                        _update_buttons_state: function () {
-
-                            const rows_count = this.get_rows_count();
-
-                            const remove_disabled = rows_count <= 1;
-                            const add_disabled = (this.max > 0) ? (rows_count >= this.max) : false;
-
-                            this.wrapper.querySelectorAll('.rowio-remove').forEach((btn) => {
-                                btn.disabled = remove_disabled;
-                                if (remove_disabled) {
-                                    btn.setAttribute('disabled', 'disabled');
-                                } else {
-                                    btn.removeAttribute('disabled');
-                                }
-                            });
-
-                            this.wrapper.querySelectorAll('.rowio-add').forEach((btn) => {
-                                btn.disabled = add_disabled;
-                                if (add_disabled) {
-                                    btn.setAttribute('disabled', 'disabled');
-                                } else {
-                                    btn.removeAttribute('disabled');
-                                }
-                            });
-                        },
-
-                        /**
-                         * Returns row elements.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @returns {HTMLElement[]}
-                         */
-                        _get_rows: function () {
-                            return Array.from(this.rows_container.querySelectorAll('.rowio-row'));
-                        },
-
-                        /**
-                         * Returns row index from first field parsed, fallback by DOM order.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Get all field elements (value carriers) inside given row
                          *
                          * @param {HTMLElement} row
-                         * @returns {Number|null}
+                         *
+                         * @returns {Array}
+                         *
+                         * @private
                          */
-                        _get_row_index: function (row) {
+                        _get_row_field_elements: function (row) {
 
-                            const els = this._get_row_fields_elements(row);
-                            for (let i = 0; i < els.length; i += 1) {
-
-                                const name = (els[i].getAttribute('name') || '').trim();
-                                const id = (els[i].getAttribute('id') || '').trim();
-
-                                const parsed = this._parse_key(name.length ? name : id);
-                                if (parsed) {
-                                    return parsed.index;
-                                }
+                            if (!row || !row instanceof HTMLElement) {
+                                return [];
                             }
 
-                            // fallback: DOM position
-                            const rows = this._get_rows();
-                            const pos = rows.indexOf(row);
+                            const elements = row.querySelectorAll('input, select, textarea, [contenteditable="true"]');
+                            if (!elements.length) {
+                                return [];
+                            }
 
-                            return pos >= 0 ? pos : null;
+                            const result = [];
+
+                            elements.forEach( element => {
+                                result.push(element);
+                            });
+
+                            return result;
                         },
 
                         /**
-                         * Builds payload for events: row/index/fields/editors.
+                         * Parse the given key into components (prefix, field, index)
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @param {String} key
+                         *
+                         * @returns {{prefix: string, field: string, index: number}|null} Parsed key object or null on failure
+                         *
+                         * @private
+                         */
+                        _parse_key: function (key) {
+
+                            if (!key || typeof key !== 'string' || !key.length) {
+                                return null;
+                            }
+
+                            // Fast precheck
+                            const pos = key.indexOf('__');
+                            if (pos <= 0) {
+                                console.error('Rowio key parse: Invalid key format (no __ found)', key);
+                                return null;
+                            }
+
+                            const parts = key.split('__');
+                            if (parts.length !== 3) {
+                                console.error(`Rowio key parse: Invalid key format (expected 3 parts, got ${parts.length})`, key);
+                                return null;
+                            }
+
+                            const prefix = parts[0];
+                            const field = parts[1];
+                            const index_raw = parts[2];
+
+                            if (!prefix.length || !field.length) {
+                                console.error('Rowio key parse: Invalid key format (empty prefix or field)', key);
+                                return null;
+                            }
+
+                            const index = parseInt(index_raw, 10);
+                            if (Number.isNaN(index)) {
+                                console.error('Rowio key parse: Invalid key format (index is not a number)', key);
+                                return null;
+                            }
+
+                            return {
+                                prefix: prefix,
+                                field: field,
+                                index: index
+                            };
+                        },
+
+                        /**
+                         * Check if given element is a value carrier (input, select, textarea, contenteditable)
+                         *
+                         * @param {any} element
+                         *
+                         * @returns {Boolean}
+                         *
+                         * @private
+                         */
+                        _is_value_element: function (element) {
+
+                            return (
+                                element instanceof HTMLInputElement ||
+                                element instanceof HTMLSelectElement ||
+                                element instanceof HTMLTextAreaElement ||
+                                (element.getAttribute && element.getAttribute('contenteditable') === 'true')
+                            );
+                        },
+
+                        /**
+                         * Write given value into given element
+                         *
+                         * @param {HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement|HTMLElement} element
+                         * @param {any} value
+                         *
+                         * @private
+                         */
+                        _write_value: function (element, value) {
+
+                            if (!element) {
+                                console.warn('Rowio write: No element found in template', this);
+                                return;
+                            }
+
+                            // Normalize undefined/null
+                            if (typeof value === 'undefined' || value === null) {
+                                value = '';
+                            }
+
+                            // Input element
+                            if (element instanceof HTMLInputElement) {
+
+                                if (element.type === 'checkbox') {
+                                    element.checked = (value === 1 || value === '1' || value === true);
+                                } else if (element.type === 'radio') {
+                                    element.checked = (element.value === value);
+                                } else {
+                                    element.value = value;
+                                }
+
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                                return;
+                            }
+
+                            // Select element
+                            if (element instanceof HTMLSelectElement) {
+
+                                if (element.multiple) {
+
+                                    const values = Array.isArray(value)
+                                        ? value.map( v => String(v) )
+                                        : (
+                                            typeof value === 'string'
+                                            ? value.split(',').map( v => v.trim() )
+                                            : []
+                                        );
+
+                                    Array.from(element.options).forEach( option => {
+                                        option.selected = values.includes(option.value);
+                                    });
+
+                                } else {
+
+                                    Array.from(element.options).forEach( option => {
+                                        option.selected = String(value) === option.value;
+                                    });
+                                }
+
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                                return;
+                            }
+
+                            // Textarea element
+                            if (element instanceof HTMLTextAreaElement) {
+
+                                element.value = value;
+
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                                return;
+                            }
+
+                            // Contenteditable element
+                            if (element.getAttribute && element.getAttribute('contenteditable') === 'true') {
+
+                                const allow_html = (element.dataset && element.dataset.rowioHtml === '1')
+                                    || (element.dataset && element.dataset.rowioHtml === 'true');
+
+                                if (allow_html) {
+                                    element.innerHTML = value;
+                                } else {
+                                    element.textContent = value;
+                                }
+
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        },
+
+                        /**
+                         * Apply default values to all fields in given row
                          *
                          * @param {HTMLElement} row
-                         * @param {Number|null} index
-                         * @returns {Object}
+                         *
+                         * @private
+                         */
+                        _apply_default_values: function (row) {
+
+                            const elements = this._get_row_field_elements(row);
+
+                            elements.forEach( element => {
+
+                                const default_value = (element.dataset.rowioDefault || '').toString();
+
+                                // If no default value, clear inputs
+                                if (!default_value.length) {
+
+                                    if (this._is_value_element(element)) {
+                                        this._write_value(element, '');
+                                    }
+
+                                    return;
+                                }
+
+                                this._write_value(element, default_value);
+                            });
+                        },
+
+                        /**
+                         * Prefill given row from given data object
+                         *
+                         * @param {HTMLElement} row
+                         * @param {Object} data
+                         *
+                         * @private
+                         */
+                        _prefill_row_from_data: function (row, data) {
+
+                            // First apply defaults
+                            this._apply_default_values(row);
+
+                            const payload = this._make_payload(row, this._get_row_index(row));
+
+                            Object.keys(data).forEach( key => {
+
+                                if (!payload.fields[key]) {
+                                    return;
+                                }
+
+                                const field = payload.fields[key];
+                                const targets = Array.isArray(field) ? field : [field];
+
+                                targets.forEach( target => {
+                                    this._write_value(target, data[key]);
+                                });
+                            });
+                        },
+
+                        /**
+                         * Create event payload object
+                         *
+                         * @param {HTMLElement} row
+                         * @param {Number} index
+                         *
+                         * @returns {{instance: *, row: *, index: *, fields: {}, editors: *[]}} Event payload object
+                         *
+                         * @private
                          */
                         _make_payload: function (row, index) {
 
                             const fields = {};
                             const editors = [];
 
-                            if (row) {
+                            if (row && row instanceof HTMLElement) {
 
-                                const els = this._get_row_fields_elements(row);
+                                const elements = this._get_row_field_elements(row);
 
-                                els.forEach((el) => {
+                                elements.forEach( element => {
 
-                                    // editor candidates
-                                    if (el.classList && el.classList.contains('tinymce-editor')) {
-                                        editors.push(el);
+                                    // Editor candidates
+                                    if (element.classList && element.classList.contains('wysiwyg-editor')) {
+                                        editors.push(element);
                                     }
-                                    if (el.getAttribute && el.getAttribute('contenteditable') === 'true') {
-                                        editors.push(el);
+                                    if (element.getAttribute && element.getAttribute('contenteditable') === 'true') {
+                                        editors.push(element);
                                     }
 
-                                    const name = (el.getAttribute('name') || '').trim();
-                                    const id = (el.getAttribute('id') || '').trim();
+                                    const name = (element.getAttribute('name') || '').trim();
+                                    const id = (element.getAttribute('id') || '').trim();
 
                                     const parsed = this._parse_key(name.length ? name : id);
                                     if (!parsed) {
                                         return;
                                     }
 
-                                    const field = parsed.field;
+                                    const field_name = parsed.field;
 
-                                    if (typeof fields[field] === 'undefined') {
-                                        fields[field] = el;
-                                    } else if (Array.isArray(fields[field])) {
-                                        fields[field].push(el);
+                                    if (typeof fields[field_name] === 'undefined') {
+                                        fields[field_name] = element; // First occurrence
+                                    } else if (Array.isArray(fields[field_name])) {
+                                        fields[field_name].push(element); // Third+ occurrence
                                     } else {
-                                        fields[field] = [fields[field], el];
+                                        fields[field_name] = [fields[field_name], element]; // Second occurrence
                                     }
                                 });
                             }
@@ -1028,16 +955,45 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Emits a CustomEvent on wrapper with detail payload.
+                         * Get index of given row
                          *
-                         * @author TB
-                         * @date 24.1.2026
+                         * @param {HTMLElement} row
+                         *
+                         * @returns {Number|null}
+                         *
+                         * @private
+                         */
+                        _get_row_index: function (row) {
+
+                            const elements = this._get_row_field_elements(row);
+
+                            for (let i = 0; i < elements.length; i += 1) {
+
+                                const name = (elements[i].getAttribute('name') || '').trim();
+                                const id = (elements[i].getAttribute('id') || '').trim();
+
+                                const parsed = this._parse_key(name.length ? name : id);
+                                if (parsed) {
+                                    return parsed.index;
+                                }
+                            }
+
+                            // Fallback: get from DOM position
+                            const rows = this._get_rows();
+                            const pos = rows.indexOf(row);
+
+                            return pos >= 0 ? pos : null;
+                        },
+
+                        /**
+                         * Emit event with given name and payload from the wrapper
                          *
                          * @param {String} name
                          * @param {Object} payload
-                         * @returns {void}
+                         *
+                         * @private
                          */
-                        _emit: function (name, payload) {
+                        _emit_event: function (name, payload) {
 
                             const event = new CustomEvent(name, {
                                 bubbles: true,
@@ -1049,203 +1005,62 @@ Object.defineProperty(window, 'Rowio', {
                         },
 
                         /**
-                         * Returns row field elements:
-                         * - input/select/textarea
-                         * - elements with contenteditable="true"
+                         * Set up copy down controls for the instance
                          *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} row
-                         * @returns {HTMLElement[]}
-                         */
-                        _get_row_fields_elements: function (row) {
-
-                            const out = [];
-
-                            // inputs/selects/textareas
-                            row.querySelectorAll('input, select, textarea').forEach((el) => {
-                                out.push(el);
-                            });
-
-                            // contenteditable elements
-                            row.querySelectorAll('[contenteditable="true"]').forEach((el) => {
-                                out.push(el);
-                            });
-
-                            return out;
-                        },
-
-                        /**
-                         * Parses key in format: prefix__field__index
-                         * Returns null if not valid.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {String} key
-                         * @returns {Object|null}
-                         */
-                        _parse_key: function (key) {
-
-                            if (!key || typeof key !== 'string') {
-                                return null;
-                            }
-
-                            // fast precheck
-                            const pos = key.indexOf('__');
-                            if (pos <= 0) {
-                                return null;
-                            }
-
-                            const parts = key.split('__');
-                            if (parts.length !== 3) {
-                                return null;
-                            }
-
-                            const prefix = parts[0];
-                            const field = parts[1];
-                            const index_raw = parts[2];
-
-                            if (!prefix.length || !field.length) {
-                                return null;
-                            }
-
-                            const index = parseInt(index_raw, 10);
-                            if (Number.isNaN(index)) {
-                                return null;
-                            }
-
-                            return {
-                                prefix: prefix,
-                                field: field,
-                                index: index
-                            };
-                        },
-
-                        /**
-                         * Reads a value from element in a generic way.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} el
-                         * @returns {*}
-                         */
-                        _read_value: function (el) {
-
-                            if (!el) {
-                                return '';
-                            }
-
-                            if (el instanceof HTMLInputElement) {
-
-                                if (el.type === 'checkbox') {
-                                    return el.checked ? 1 : 0;
-                                }
-
-                                if (el.type === 'radio') {
-                                    return el.checked ? el.value : '';
-                                }
-
-                                return el.value;
-                            }
-
-                            if (el instanceof HTMLSelectElement) {
-                                return el.value;
-                            }
-
-                            if (el instanceof HTMLTextAreaElement) {
-                                return el.value;
-                            }
-
-                            if (el.getAttribute && el.getAttribute('contenteditable') === 'true') {
-                                return el.textContent;
-                            }
-
-                            return '';
-                        },
-
-                        /**
-                         * Writes a value to element in a generic way.
-                         * Triggers "change" event on value elements for easy integration.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} el
-                         * @param {*} value
                          * @returns {void}
+                         *
+                         * @private
                          */
-                        _write_value: function (el, value) {
+                        _setup_copy_down_controls: function () {
 
-                            if (!el) {
+                            // Remove existing controls to avoid duplicates
+                            this.wrapper.querySelectorAll('.rowio-copy-down')
+                                            .forEach( element => element.remove());
+
+                            const field_names = this._parse_csv(this.copydown);
+                            if (!field_names.length) {
+                                console.info('Rowio instance copydown setup: No field names defined for copydown', this);
                                 return;
                             }
 
-                            // normalize undefined/null
-                            if (typeof value === 'undefined' || value === null) {
-                                value = '';
+                            const rows = this._get_rows();
+                            if (!rows.length) {
+                                console.info('Rowio instance copydown setup: No rows found in instance', this);
+                                return;
                             }
 
-                            if (el instanceof HTMLInputElement) {
+                            const first_row = rows[0];
+                            const payload = this._make_payload(first_row, 0);
 
-                                if (el.type === 'checkbox') {
-                                    el.checked = (value === 1 || value === '1' || value === true);
-                                } else if (el.type === 'radio') {
-                                    el.checked = (el.value === value);
-                                } else {
-                                    el.value = value;
+                            field_names.forEach( field_name => {
+
+                                const field = payload.fields[field_name] ? payload.fields[field_name] : null;
+                                const element = Array.isArray(field) ? field[0] : field;
+
+                                if (!element) {
+                                    return;
                                 }
 
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                                return;
-                            }
+                                // Create button next to the input (simple and framework-agnostic)
+                                const btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'rowio-copy-down btn btn-primary';
+                                btn.dataset.rowioField = field;
+                                btn.innerHTML = '↓';
 
-                            if (el instanceof HTMLSelectElement) {
-                                el.value = value;
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                                return;
-                            }
-
-                            if (el instanceof HTMLTextAreaElement) {
-                                el.value = value;
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                                return;
-                            }
-
-                            if (el.getAttribute && el.getAttribute('contenteditable') === 'true') {
-                                el.textContent = String(value);
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
+                                // insert right after element
+                                element.insertAdjacentElement('afterend', btn);
+                            });
                         },
 
                         /**
-                         * Returns true if element is considered a value element.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
-                         *
-                         * @param {HTMLElement} el
-                         * @returns {Boolean}
-                         */
-                        _is_value_element: function (el) {
-                            return (
-                                el instanceof HTMLInputElement ||
-                                el instanceof HTMLSelectElement ||
-                                el instanceof HTMLTextAreaElement ||
-                                (el.getAttribute && el.getAttribute('contenteditable') === 'true')
-                            );
-                        },
-
-                        /**
-                         * Parses comma-separated string into trimmed array.
-                         *
-                         * @author TB
-                         * @date 24.1.2026
+                         * Parse comma-separated values string into array
                          *
                          * @param {String} csv
-                         * @returns {String[]}
+                         *
+                         * @returns {Array} Array of trimmed non-empty strings
+                         *
+                         * @private
                          */
                         _parse_csv: function (csv) {
 
@@ -1255,46 +1070,206 @@ Object.defineProperty(window, 'Rowio', {
 
                             return csv
                                 .split(',')
-                                .map((x) => x.trim())
-                                .filter((x) => x.length > 0);
-                        }
+                                .map( chunk => chunk.trim() )
+                                .filter( chunk => chunk.length > 0);
+                        },
+
+                        /**
+                         * Copy down value from given field in given source row to same field in all subsequent rows
+                         *
+                         * @param {String} field_name
+                         * @param {HTMLElement} source_row
+                         *
+                         * @private
+                         */
+                        _copy_down: function (field_name, source_row) {
+
+                            if (!field_name || typeof field_name !== 'string' || !field_name.length) {
+                                console.error('Rowio instance copy down: Invalid field name', this);
+                                return;
+                            }
+
+                            if (!source_row || !source_row instanceof HTMLElement) {
+                                console.error('Rowio instance copy down: Invalid source row element', this);
+                                return;
+                            }
+
+                            const rows = this._get_rows();
+                            if (!rows.length) {
+                                console.info('Rowio instance copy down: No rows found in instance', this);
+                                return;
+                            }
+
+                            const source_index = this._get_row_index(source_row);
+                            if (source_index === null) {
+                                console.error('Rowio instance copy down: Source row index could not be determined', this);
+                                return;
+                            }
+
+                            const source_payload = this._make_payload(source_row, source_index);
+                            const source_field = source_payload.fields[field_name] ? source_payload.fields[field_name] : null;
+                            const source_element = Array.isArray(source_field) ? source_field[0] : source_field;
+
+                            if (!source_element) {
+                                console.error('Rowio instance copy down: Source field element not found in source row', this);
+                                return;
+                            }
+
+                            const source_value = this._read_value(source_element);
+
+                            // Apply to next rows only
+                            for (let i = source_index + 1; i < rows.length; i++) {
+
+                                const row = rows[i];
+                                const payload = this._make_payload(row, i);
+                                const field = payload.fields[field_name] ? payload.fields[field_name] : null;
+
+                                if (!field) {
+                                    console.warn(`Rowio instance copy down: No field element found in target row index ${i}`, this);
+                                    continue;
+                                }
+
+                                const targets = Array.isArray(field) ? field : [field];
+                                targets.forEach((target) => {
+                                    this._write_value(target, source_value);
+                                });
+                            }
+
+                            this._emit_event('rowio:copy-down', this._make_payload(source_row, source_index));
+                            this._emit_event('rowio:change', this._make_payload(source_row, source_index));
+                        },
+
+                        /**
+                         * Read value from given element
+                         *
+                         * @param {HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement|HTMLElement} element
+                         *
+                         * @returns {Number|String}
+                         *
+                         * @private
+                         */
+                        _read_value: function (element) {
+
+                            if (!element) {
+                                return '';
+                            }
+
+                            // Input element
+                            if (element instanceof HTMLInputElement) {
+
+                                if (element.type === 'checkbox') {
+                                    return element.checked ? 1 : 0;
+                                }
+
+                                if (element.type === 'radio') {
+                                    return element.checked ? element.value : '';
+                                }
+
+                                return element.value;
+                            }
+
+                            // Select element
+                            if (element instanceof HTMLSelectElement) {
+                                return element.value;
+                            }
+
+                            // Textarea element
+                            if (element instanceof HTMLTextAreaElement) {
+                                return element.value;
+                            }
+
+                            // Contenteditable element
+                            if (element.getAttribute && element.getAttribute('contenteditable') === 'true') {
+
+                                const allow_html = (element.dataset && element.dataset.rowioHtml === '1')
+                                    || (element.dataset && element.dataset.rowioHtml === 'true');
+
+                                return allow_html ? element.innerHTML : element.textContent;
+                            }
+
+                            return '';
+                        },
+
+                        /**
+                         * Render initial rows based on prefill data or shown count
+                         *
+                         * @return {void}
+                         *
+                         * @private
+                         */
+                        _render_initial_rows: function () {
+
+                            // Clear any existing rows
+                            this.rows_container.innerHTML = '';
+
+                            if (this._prefill_data && this._prefill_data.length) {
+
+                                if (this.max > 0 && this._prefill_data.length > this.max) {
+                                    console.warn('Rowio instance initial render: Prefill data length exceeds max rows, truncating', this);
+                                }
+
+                                // Respect maximum
+                                const limit = (this.max > 0)
+                                    ? Math.min(this._prefill_data.length, this.max)
+                                    : this._prefill_data.length;
+
+                                // Add rows with prefill data
+                                for (let i = 0; i < limit; i++) {
+                                    this.add_row(this._prefill_data[i]);
+                                }
+
+                                return;
+                            }
+
+                            // Fallback to shown count (minimum is always 1)
+                            const count = Math.max(1, this.shown);
+                            for (let i = 0; i < count; i++) {
+                                this.add_row(null);
+                            }
+                        },
+
                     };
                 },
 
                 /**
-                 * Converts value to integer with default fallback.
+                 * Initialize Rowio instance on given target or multiple targets
                  *
-                 * @author TB
-                 * @date 24.1.2026
+                 * @param {String|Array|HTMLElement|NodeList|HTMLCollection|null|undefined} target
                  *
-                 * @param {*} value
-                 * @param {Number} def
-                 * @returns {Number}
+                 * @returns {void}
                  */
-                _to_int: function (value, def) {
+                init: function (target = undefined) {
 
-                    const num = parseInt(value, 10);
-                    if (Number.isNaN(num)) {
-                        return def;
+                    const wrappers = this._normalize_wrappers(target);
+                    if (!wrappers.length) {
+                        console.error('No wrappers found for Rowio initialization');
+                        return;
                     }
 
-                    return num;
-                }
+                    wrappers.forEach( wrapper => {
+
+                        if (wrapper.dataset.rowioInitialized === '1') {
+                            return;
+                        }
+
+                        const instance = this._create_instance(wrapper);
+                        if (!instance) {
+                            return;
+                        }
+
+                        this.instances[instance.key] = instance;
+                        wrapper.dataset.rowioInitialized = '1';
+
+                        instance._init();
+                    });
+
+                },
+
             };
 
-            // auto-init on DOM ready
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function () {
-                    window.Rowio.init();
-                });
-            } else {
-                // already ready
-                setTimeout(function () {
-                    window.Rowio.init();
-                }, 0);
-            }
-
             return _instance;
-        };
+        }
+
     })()
+
 });
