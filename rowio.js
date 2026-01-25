@@ -90,8 +90,10 @@ Object.defineProperty(window, 'Rowio', {
                     // No target provided, look for all elements with .rowio class
                     if (typeof target === 'undefined' || target === null) {
 
-                        elements = Array.from(document.querySelectorAll('.rowio'));
+                        elements = Array.from(document.querySelectorAll('.rowio'))
+                            .filter( element => element instanceof HTMLElement ); // Keep only HTMLElements
 
+                        // Remove duplicates
                         return Array.from(new Set(elements));
                     }
 
@@ -160,7 +162,7 @@ Object.defineProperty(window, 'Rowio', {
                  */
                 _create_instance: function (wrapper) {
 
-                    if (!wrapper || !wrapper instanceof HTMLElement) {
+                    if (!wrapper || !(wrapper instanceof HTMLElement)) {
                         return null;
                     }
 
@@ -185,9 +187,12 @@ Object.defineProperty(window, 'Rowio', {
                     const shown = this._to_int(wrapper.dataset.rowioShown, 1);
                     const max = this._to_int(wrapper.dataset.rowioMax, 0); // 0 = unlimited
                     const copy_down = (wrapper.dataset.rowioCopyDown || '').trim();
+                    const class_btn_copy_down = (wrapper.dataset.rowioCopyDownClass || '').trim();
 
                     const override_key = (template.dataset.rowioKey || '').trim();
                     const key = override_key.length ? override_key : prefix;
+
+                    console.log(override_key, prefix, key);
 
                     if (!key.length) {
                         console.error('Rowio instance creation failed: No key defined for instance in wrapper', wrapper);
@@ -260,6 +265,13 @@ Object.defineProperty(window, 'Rowio', {
                         override_key: override_key,
 
                         /**
+                         * Copy down button class
+                         *
+                         * @type {String}
+                         */
+                        class_btn_copy_down: class_btn_copy_down,
+
+                        /**
                          * Template row clone
                          *
                          * @type {HTMLElement|null}
@@ -269,7 +281,7 @@ Object.defineProperty(window, 'Rowio', {
                         /**
                          * Prefill data for the instance
                          *
-                         * @type {Object|null}
+                         * @type {Array|null}
                          */
                         _prefill_data: null,
 
@@ -502,7 +514,7 @@ Object.defineProperty(window, 'Rowio', {
                          */
                         remove_row: function (row) {
 
-                            if (!row || !row instanceof HTMLElement) {
+                            if (!row || !(row instanceof HTMLElement)) {
                                 console.error('Rowio instance remove_row: Invalid row element', this);
                                 return;
                             }
@@ -583,7 +595,7 @@ Object.defineProperty(window, 'Rowio', {
                             const row = this._template_row.cloneNode(true);
 
                             // Ensure it's an element
-                            if (!row instanceof HTMLElement) {
+                            if (!(row instanceof HTMLElement)) {
                                 console.error('Rowio row clone: Cloned node is not an HTMLElement', this);
                                 return null;
                             }
@@ -619,36 +631,39 @@ Object.defineProperty(window, 'Rowio', {
                                     // Update name
                                     if (name.length) {
 
+                                        let new_name;
+
                                         const parsed = this._parse_key(name);
                                         if (parsed) {
-                                            const new_name = `${parsed.prefix}__${parsed.field}__${new_index}`;
-                                            element.setAttribute('name', new_name);
+                                            new_name = `${parsed.prefix}__${parsed.field}__${new_index}`;
+                                        } else {
+                                            new_name = `${this.prefix}__${name}__${new_index}`;
                                         }
+                                        element.setAttribute('name', new_name);
                                     }
 
                                     // Update id
                                     if (id.length) {
 
+                                        const old_id = id;
+                                        let new_id;
+
                                         const parsed = this._parse_key(id);
                                         if (parsed) {
-
-                                            const old_id = id;
-                                            const new_id = `${parsed.prefix}__${parsed.field}__${new_index}`;
-
-                                            element.setAttribute('id', new_id);
-
-                                            // Update labels inside row that reference this id
-                                            row.querySelectorAll(`label[for="${CSS.escape(old_id)}"]`).forEach( label => {
-                                                label.setAttribute('for', new_id);
-                                            });
+                                            new_id = `${parsed.prefix}__${parsed.field}__${new_index}`;
+                                        } else {
+                                            new_id = `${this.prefix}__${id}__${new_index}`;
                                         }
+
+                                        element.setAttribute('id', new_id);
+
+                                        // Update labels inside row that reference this id
+                                        row.querySelectorAll(`label[for="${CSS.escape(old_id)}"]`).forEach( label => {
+                                            label.setAttribute('for', new_id);
+                                        });
                                     }
                                 });
                             });
-
-                            // TODO: resolve this
-                            //      After reindex, enforce add/remove disabled states
-                            //      this._update_buttons_state();
                         },
 
                         /**
@@ -662,22 +677,11 @@ Object.defineProperty(window, 'Rowio', {
                          */
                         _get_row_field_elements: function (row) {
 
-                            if (!row || !row instanceof HTMLElement) {
+                            if (!row || !(row instanceof HTMLElement)) {
                                 return [];
                             }
 
-                            const elements = row.querySelectorAll('input, select, textarea, [contenteditable="true"]');
-                            if (!elements.length) {
-                                return [];
-                            }
-
-                            const result = [];
-
-                            elements.forEach( element => {
-                                result.push(element);
-                            });
-
-                            return result;
+                            return Array.from(row.querySelectorAll('input, select, textarea, [contenteditable="true"]'));
                         },
 
                         /**
@@ -803,9 +807,21 @@ Object.defineProperty(window, 'Rowio', {
 
                                 } else {
 
+                                    let selected = false;
                                     Array.from(element.options).forEach( option => {
-                                        option.selected = String(value) === option.value;
+
+                                        if (String(value) === option.value) {
+                                            option.selected = true;
+                                            selected = true;
+                                        } else {
+                                            option.selected = false;
+                                        }
                                     });
+
+                                    // If nothing is selected, select the first option
+                                    if (!selected && element.options.length) {
+                                        element.selectedIndex = 0;
+                                    }
                                 }
 
                                 element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1017,7 +1033,7 @@ Object.defineProperty(window, 'Rowio', {
                             this.wrapper.querySelectorAll('.rowio-copy-down')
                                             .forEach( element => element.remove());
 
-                            const field_names = this._parse_csv(this.copydown);
+                            const field_names = this._parse_csv(this.copy_down);
                             if (!field_names.length) {
                                 console.info('Rowio instance copydown setup: No field names defined for copydown', this);
                                 return;
@@ -1044,8 +1060,8 @@ Object.defineProperty(window, 'Rowio', {
                                 // Create button next to the input (simple and framework-agnostic)
                                 const btn = document.createElement('button');
                                 btn.type = 'button';
-                                btn.className = 'rowio-copy-down btn btn-primary';
-                                btn.dataset.rowioField = field;
+                                btn.className = `rowio-copy-down ${this.class_btn_copy_down}`;
+                                btn.dataset.rowioField = field_name;
                                 btn.innerHTML = '↓';
 
                                 // insert right after element
@@ -1089,7 +1105,7 @@ Object.defineProperty(window, 'Rowio', {
                                 return;
                             }
 
-                            if (!source_row || !source_row instanceof HTMLElement) {
+                            if (!source_row || !(source_row instanceof HTMLElement)) {
                                 console.error('Rowio instance copy down: Invalid source row element', this);
                                 return;
                             }
