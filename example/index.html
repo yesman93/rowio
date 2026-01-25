@@ -2,50 +2,730 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rowio Demo (Free)</title>
 
-    <title>Rowio demo page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <!-- Rowio -->
     <script src="../rowio.js" type="text/javascript"></script>
 
+    <style>
+        body { padding: 2rem 0; background: #efefef }
+        .demo-card { border: 1px solid #e9ecef; box-shadow: 0 0 12px rgba(0,0,0,.05); border-radius: .75rem; padding: 1.25rem; margin: 0 0 1.5rem; background: #fff; }
+        .demo-title { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin: 0 0 1.5rem; }
+        .demo-title h2 { margin:0; font-size:1.25rem; }
+        .demo-note { color:#6c757d; font-size:.9rem; margin-top:.25rem; }
+        .rowio-rows .rowio-copy-down { margin-left: .5rem; }
+        .code-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: .9em; background-color:#efefef;border:1px solid #dfdfdf; padding: 2px 3px; border-radius: 4px; }
+        .code-inline .code-comment { opacity: .45; }
+        .log-box {
+            min-height: 200px;
+            max-height: 400px;
+            height: auto;
+            overflow: auto;
+            background: #0b1020;
+            color: #d6d9e0;
+            border-radius: .75rem;
+            padding: .75rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: .85rem;
+            border: 1px solid rgba(255,255,255,.08);
+        }
+        .pill { font-size: .75rem; padding: .2rem .55rem; border-radius: 999px; background:#f1f3f5; color:#495057; }
+        .contenteditable-box {
+            min-height: 42px;
+            padding: .375rem .75rem;
+            border: 1px solid #ced4da;
+            border-radius: .375rem;
+        }
+        .btn-soft-primary {
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: var(--bs-primary);
+            --bs-btn-hover-border-color: var(--bs-primary);
+
+            background-color: var(--bs-primary-bg-subtle) !important;
+            color: var(--bs-primary) !important;
+        }
+
+        .btn-soft-primary:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+
+        .btn-soft-secondary {
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: var(--bs-secondary);
+            --bs-btn-hover-border-color: var(--bs-secondary);
+
+            background-color: var(--bs-secondary-bg-subtle) !important;
+            color: var(--bs-secondary) !important;
+        }
+
+        .btn-soft-secondary:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+
+        .btn-soft-success {
+
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: var(--bs-success);
+            --bs-btn-hover-border-color: var(--bs-success);
+
+            background-color: var(--bs-success-bg-subtle) !important;
+            color: var(--bs-success) !important;
+        }
+
+        .btn-soft-success:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+
+        .btn-soft-danger {
+            --bs-btn-hover-color: #fff;
+            --bs-btn-hover-bg: var(--bs-danger);
+            --bs-btn-hover-border-color: var(--bs-danger);
+
+            background-color: var(--bs-danger-bg-subtle) !important;
+            color: var(--bs-danger) !important;
+        }
+
+        .btn-soft-danger:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+
+        .btn-soft-warning {
+            --bs-btn-hover-color: #000;
+            --bs-btn-hover-bg: var(--bs-warning);
+            --bs-btn-hover-border-color: var(--bs-warning);
+
+            background-color: var(--bs-warning-bg-subtle) !important;
+            color: var(--bs-warning) !important;
+        }
+
+        .btn-soft-warning:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+
+        .btn-soft-info {
+            --bs-btn-hover-color: #000;
+            --bs-btn-hover-bg: var(--bs-info);
+            --bs-btn-hover-border-color: var(--bs-info);
+
+            background-color: var(--bs-info-bg-subtle) !important;
+            color: var(--bs-info) !important;
+        }
+
+        .btn-soft-info:hover {
+            color: var(--bs-btn-hover-color) !important;
+            background-color: var(--bs-btn-hover-bg) !important;
+            border-color: var(--bs-btn-hover-border-color);
+        }
+    </style>
+
     <script type="text/javascript">
+        function _log(line) {
+            const box = document.getElementById('event_log');
+            if (!box) return;
 
-        document.addEventListener('DOMContentLoaded', function(){
+            const ts = new Date().toISOString().slice(11, 19);
+            box.innerHTML += `<span class="text-warning">[${ts}]</span> ${line}<br />\n`;
+            box.scrollTop = box.scrollHeight;
+        }
 
+        function _dump(obj) {
+            try { return JSON.stringify(obj); } catch (e) { return '[unserializable]'; }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // 1) Init all Rowio components
             Rowio.init();
 
+            // 2) Attach event listeners (demonstrate integration surface)
+            document.querySelectorAll('.rowio').forEach(function (wrap) {
+                ['rowio:ready','rowio:row-add','rowio:row-remove','rowio:copy-down','rowio:change','rowio:max-rows-reached'].forEach(function (evt) {
+                    wrap.addEventListener(evt, function (e) {
+                        const key = (e.detail && e.detail.instance && e.detail.instance.key) ? e.detail.instance.key : '(unknown)';
+                        const idx = (e.detail && typeof e.detail.index !== 'undefined') ? e.detail.index : '';
+                        _log(`<span class="text-info">[Event ${evt}]</span>  key=${key}  index=${idx}`);
+                    });
+                });
+            });
+
+            // 3) Demo buttons: programmatic API
+            document.getElementById('btn_get_enum_data').addEventListener('click', function () {
+                const inst = Rowio.instances['enum_'] || null;
+                if (!inst) return _log('enum_: instance not found');
+                _log(`enum_: get_data() => ${_dump(inst.get_data())}`);
+            });
+
+            document.getElementById('btn_add_prefilled').addEventListener('click', function () {
+                const inst = Rowio.instances['invoice_items'] || null;
+                if (!inst) return _log('invoice_items: instance not found');
+                inst.add_row({ description: 'Added by JS', qty: 1, price: '99.90', vat: '21' });
+            });
+
+            document.getElementById('btn_get_invoice_data').addEventListener('click', function () {
+                const inst = Rowio.instances['invoice_items'] || null;
+                if (!inst) return _log('invoice_items: instance not found');
+                _log(`invoice_items: get_data() => ${_dump(inst.get_data())}`);
+            });
+
         });
-
     </script>
-
 </head>
+
 <body>
+<div class="container">
 
-
-<div class="rowio" data-rowio-prefix="enum_">
-    <template class="rowio-template">
-        <div class="row gx-2 rowio-row">
-            <div class="col-5">
-                <div class="form-group mb-3">
-                    <input name="enum_value" type="text" id="enum_value" class="form-control " value="" data-show-search="0" placeholder="Value">
-                </div>
+    <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <h1 class="mb-1 d-flex gap-3 align-items-end">Rowio Demo <span class="pill text-bg-info mb-2">Free</span></h1>
+                <span>
+                    <a href="https://github.com/yesman93/rowio" target="_blank" class="btn btn-primary">
+                        Download
+                        &nbsp;
+                        &darr;
+                    </a>
+                </span>
             </div>
-            <div class="col-5">
-                <div class="form-group mb-3">
-                    <input name="enum_label" type="text" id="enum_label" class="form-control " value="" data-show-search="0" placeholder="Label">
-                </div>
-            </div>
-            <div class="col-2">
-                <a href="javascript:;" class="btn btn-danger rowio-remove">x</a>
+            <div class="text-secondary mt-4">
+                <p>
+                    Repeatable form rows from a single <span class="code-inline">&lt;template&gt;</span> — no dependencies, multiple instances, hard reindex, copy-down, JSON prefill, and clean DOM events.
+                </p>
+                <p>
+                </p>
             </div>
         </div>
-    </template>
-    <a href="javascript:;" class="btn btn-primary rowio-add">+</a>
+    </div>
+
+    <!-- Event log -->
+    <div class="row g-3 mb-4">
+
+        <div class="col-7">
+
+            <div class="demo-card">
+                <div class="demo-note">
+                    <p>
+                        Rowio is a lightweight vanilla JavaScript library for building repeatable form rows.
+                    </p>
+                    <p>
+                        Rowio is suitable for admin panels, SaaS back offices, and complex forms where users need to add/remove rows dynamically.
+                    </p>
+                    <p>
+                        Initialize Rowio on any element with the <span class="code-inline">.rowio</span> CSS class and configure using <span class="code-inline">data-*</span> attributes on the wrapper element.
+                    </p>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>Initialization</h2>
+                    <span class="pill">Rowio.init();</span>
+                </div>
+
+                <div class="demo-note">
+                    <p>
+                        Rowio is initialized manually by calling
+                        <span class="code-inline">Rowio.init()</span>.
+                        This gives you full control over when and where repeatable rows become active.
+                    </p>
+
+                    <p>
+                        For Rowio to initialize successfully, the following HTML structure is required.
+                    </p>
+
+                    <ul>
+                        <li>
+                            A wrapper element with the class
+                            <span class="code-inline">.rowio</span>
+                        </li>
+                        <li>
+                            A
+                            <span class="code-inline">&lt;template&gt;</span>
+                            element with class
+                            <span class="code-inline">.rowio-template</span>
+                        </li>
+                        <li>
+                            Inside the template, exactly one element with class
+                            <span class="code-inline">.rowio-row</span>
+                        </li>
+                        <li>
+                            Inputs inside the template must use unindexed field names
+                            (Rowio will prefix and index them automatically)
+                        </li>
+                    </ul>
+
+                    <p>
+                        Minimal example:
+                    </p>
+
+                    <p>
+                        <span class="code-inline">&lt;div class="rowio" data-rowio-prefix="items"&gt;</span><br>
+                        <span class="code-inline">&nbsp;&nbsp;&lt;template class="rowio-template"&gt;</span><br>
+                        <span class="code-inline">&nbsp;&nbsp;&nbsp;&nbsp;&lt;div class="rowio-row"&gt;</span><br>
+                        <span class="code-inline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;input name="price"&gt;</span><br>
+                        <span class="code-inline">&nbsp;&nbsp;&nbsp;&nbsp;&lt;/div&gt;</span><br>
+                        <span class="code-inline">&nbsp;&nbsp;&lt;/template&gt;</span><br>
+                        <span class="code-inline">&lt;/div&gt;</span>
+                    </p>
+
+                    <p>
+                        When initialized, Rowio will:
+                    </p>
+
+                    <ul>
+                        <li>Clone the template row</li>
+                        <li>Insert rows into a <span class="code-inline">.rowio-rows</span> container</li>
+                        <li>Automatically rewrite field names to
+                            <span class="code-inline">prefix__field__index</span>
+                        </li>
+                        <li>Emit lifecycle events such as
+                            <span class="code-inline">rowio:ready</span>
+                        </li>
+                    </ul>
+
+                    <p>
+                        Initialization is usually done once after the DOM is ready:
+                        <br />
+                        <span class="code-inline">document.addEventListener('DOMContentLoaded', () =&gt; Rowio.init());</span>
+                    </p>
+
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>Configuration via Data Attributes</h2>
+                    <span class="pill">HTML-driven</span>
+                </div>
+
+                <div class="demo-note">
+                    <p>
+                        Rowio is configured entirely through <span class="code-inline">data-*</span> attributes.
+                        No JavaScript configuration objects are required.
+                        This keeps Rowio declarative, predictable, and framework-agnostic.
+                    </p>
+
+                    <h6 class="mt-4">Wrapper-level attributes (<span class="code-inline">.rowio</span>)</h6>
+
+                    <ul>
+                        <li>
+                            <strong><span class="code-inline">data-rowio-prefix</span></strong><br>
+                            Defines the row group prefix used in input names. Example output name: <span class="code-inline">items__price__0</span>
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">data-rowio-shown</span></strong><br>
+                            Number of rows rendered initially when no prefill data is present. Minimum is always 1.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">data-rowio-max</span></strong><br>
+                            Maximum number of rows allowed. Use <span class="code-inline">0</span> or omit for unlimited rows.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">data-rowio-copy-down</span></strong><br>
+                            Comma-separated list of field names that support copy-down behavior.
+                            Copy-down buttons appear on the first row only.
+                            Example: <span class="code-inline">data-rowio-copy-down="price,tax"</span>
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">data-rowio-copy-down-class</span></strong><br>
+                            Optional CSS classes applied to copy-down buttons.
+                            Useful for custom styling.
+                        </li>
+                    </ul>
+
+                    <h6 class="mt-4">Template-level attributes (<span class="code-inline">&lt;template&gt;</span>)</h6>
+
+                    <ul>
+                        <li>
+                            <strong><span class="code-inline">data-rowio-key</span></strong><br>
+                            Overrides the instance key used for backend harvesting.
+                            When present, Rowio injects a hidden input mapping the prefix to this key.
+                            This allows backend grouping without renaming inputs.
+                        </li>
+                    </ul>
+
+                    <h6 class="mt-4">Field-level attributes (inputs / editors)</h6>
+
+                    <ul>
+                        <li>
+                            <strong><span class="code-inline">data-rowio-default</span></strong><br>
+                            Default value applied when a row is created and no prefill data exists.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">data-rowio-html</span></strong><br>
+                            Used on <span class="code-inline">contenteditable="true"</span> elements.
+                            When set to <span class="code-inline">1</span> or <span class="code-inline">true</span>,
+                            Rowio writes and reads raw HTML instead of text.
+                        </li>
+                    </ul>
+
+                    <p class="mt-4">
+                        All configuration is intentionally explicit.
+                        Rowio never infers behavior from markup structure alone.
+                    </p>
+                </div>
+            </div>
+
+
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>Events</h2>
+                    <span class="pill">CustomEvent</span>
+                </div>
+
+                <div class="demo-note">
+                    <p>
+                        Rowio emits DOM events on the <span class="code-inline">.rowio</span> wrapper element.
+                        Each event is a <span class="code-inline">CustomEvent</span> and carries its payload in
+                        <span class="code-inline">event.detail</span>.
+                    </p>
+
+                    <h6 class="mt-4">List of emitted events</h6>
+
+                    <ul>
+                        <li>
+                            <strong><span class="code-inline">rowio:ready</span></strong><br>
+                            Fired after the instance is initialized and initial rows are rendered.
+                            Payload contains instance and current rows snapshot.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">rowio:row-add</span></strong><br>
+                            Fired after a new row is added and rows reindexed.
+                            Immediately followed by <span class="code-inline">rowio:change</span>.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">rowio:row-remove</span></strong><br>
+                            Fired after a row is removed and remaining rows are reindexed.
+                            Immediately followed by <span class="code-inline">rowio:change</span>.
+                            Note: payload typically has <span class="code-inline">row: null</span> because the row is gone.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">rowio:copy-down</span></strong><br>
+                            Fired after copy-down writes values into subsequent rows.
+                            Immediately followed by <span class="code-inline">rowio:change</span>.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">rowio:change</span></strong><br>
+                            Fired after a user-visible mutation happens (add / remove / copy-down).
+                            Use this as the “recalculate / revalidate / re-init plugins” hook.
+                        </li>
+
+                        <li class="mt-2">
+                            <strong><span class="code-inline">rowio:max-rows-reached</span></strong><br>
+                            Fired when a row add is attempted but rejected because <span class="code-inline">data-rowio-max</span>
+                            is reached.
+                            No mutation happens. No row is created.
+                        </li>
+                    </ul>
+
+                    <h6 class="mt-4">Common payload shape</h6>
+                    <p class="mb-2">
+                        Most events expose these keys inside <span class="code-inline">event.detail</span>:
+                    </p>
+                    <ul>
+                        <li><span class="code-inline">instance</span> – the Rowio instance</li>
+                        <li><span class="code-inline">row</span> – the affected row element (or <span class="code-inline">null</span>)</li>
+                        <li><span class="code-inline">index</span> – row index (0-based) when applicable</li>
+                        <li><span class="code-inline">fields</span> – map of field name → element or array of elements (when applicable)</li>
+                        <li><span class="code-inline">editors</span> – list of WYSIWYG candidates in the row (when applicable)</li>
+                    </ul>
+
+                    <h6 class="mt-4">Example usage</h6>
+
+                    <p class="mb-2">
+                        Listen on a wrapper and react to events:
+                    </p>
+
+                    <pre class="mb-0 code-inline"><code>
+    <span class="code-comment">// wrapper = the .rowio element</span>
+    const wrapper = document.querySelector('.rowio');
+
+    <span class="code-comment">// Re-init plugins / validation after any structural change</span>
+    wrapper.addEventListener('rowio:change', (e) =&gt; {
+
+        const { instance, row, index, fields, editors } = e.detail;
+
+        <span class="code-comment">// Example: init Select2 / Choices on the affected row only</span>
+        if (row) {
+            <span class="code-comment">// init_select2(row.querySelectorAll('.select2-select'));</span>
+            <span class="code-comment">// init_choices(row.querySelectorAll('.choices-select'));</span>
+        }
+
+        <span class="code-comment">// Example: re-init WYSIWYG (Rowio does not do this automatically)</span>
+        <span class="code-comment">// editors.forEach(el =&gt; tinymce_init(el));</span>
+    });
+
+    <span class="code-comment">// Show alert when maximum number of rows is reached</span>
+    wrapper.addEventListener('rowio:max-rows-reached', (e) =&gt; {
+        const { max, rows_count } = e.detail;
+        <span class="code-comment">// alert(`Max rows reached (${rows_count}/${max})`);</span>
+    });
+                    </code></pre>
+                </div>
+            </div>
+
+
+
+
+            <!-- 1) Basic example -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>1) Basic repeatable rows</h2>
+                    <span class="pill">add / remove / hard reindex</span>
+                </div>
+                <div class="demo-note">
+                    <p>
+                        Template fields use bare names and optionally ids (e.g. <span class="code-inline">opt_value</span>, <span class="code-inline">opt_label</span>).
+                        Rowio rewrites them to <span class="code-inline">prefix___field__0</span>, <span class="code-inline">prefix___field__1</span> etc.
+                    </p>
+                    <p>
+                        In this case the prefix is <span class="code-inline">enum</span>, so the full field names become <span class="code-inline">enum__opt_value__0</span>, <span class="code-inline">enum__opt_label__0</span>, <span class="code-inline">enum__opt_value__1</span>, <span class="code-inline">enum__opt_label__1</span> etc.
+                    </p>
+                </div>
+
+                <div class="rowio mt-3" data-rowio-prefix="enum">
+                    <template class="rowio-template">
+                        <div class="row gx-2 align-items-start rowio-row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <input name="opt_value" type="text" id="opt_value" class="form-control" placeholder="Value">
+                                </div>
+                            </div>
+                            <div class="col-md-7">
+                                <div class="mb-3">
+                                    <input name="opt_label" type="text" id="opt_label" class="form-control" placeholder="Label">
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-soft-danger rowio-remove">&times;</button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="rowio-rows"></div>
+
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <button type="button" class="btn btn-primary rowio-add">+</button>
+                    </div>
+                </div>
+
+                <div class="demo-note mt-3">
+                    Try: Click the <span class="code-inline">+</span> and <span class="code-inline">&times;</span> buttons to add/remove rows.
+                </div>
+            </div>
+
+            <!-- 2) Copy-down -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>2) Copy-down controls (field names)</h2>
+                    <span class="pill">data-rowio-copy-down</span>
+                </div>
+                <div class="demo-note">
+                    Copy-down buttons appear next to configured fields in the first row. Clicking copies value down to all subsequent rows.
+                </div>
+
+                <div class="rowio mt-3"
+                     data-rowio-prefix="clients"
+                     data-rowio-copy-down="email,vat_id"
+                     data-rowio-copy-down-class="btn btn-sm btn-outline-primary position-absolute top-0 end-0 me-3 py-2">
+                    <template class="rowio-template">
+                        <div class="row gx-2 align-items-start rowio-row">
+                            <div class="col-md-4">
+                                <div class="mb-3 position-relative">
+                                    <input name="email" type="email" id="email" class="form-control w-75" placeholder="E-mail">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3 position-relative">
+                                    <input name="vat_id" type="text" id="vat_id" class="form-control w-75" placeholder="VAT ID">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <select name="country" id="country" class="form-select w-75">
+                                        <option value="">Country…</option>
+                                        <option value="CZ">Czechia</option>
+                                        <option value="SK">Slovakia</option>
+                                        <option value="DE">Germany</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-soft-danger rowio-remove">&times;</button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="rowio-rows"></div>
+
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-primary rowio-add">+</button>
+                    </div>
+                </div>
+
+                <div class="demo-note mt-3">
+                    Try: Set e-mail/VAT in first row by clicking the <span class="code-inline">↓</span> button. It should fill all next rows.
+                </div>
+            </div>
+
+            <!-- 3) JSON Prefill + Max -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>3) JSON prefill inside template + max rows</h2>
+                    <span class="pill">script.rowio-data + data-rowio-max</span>
+                </div>
+                <div class="demo-note">
+                    Rowio reads JSON from <span class="code-inline">&lt;script type="application/json" class="rowio-data"&gt;</span> inside the template and renders those rows.
+                    Max rows blocks adding beyond the limit.
+                </div>
+
+                <div class="rowio mt-3"
+                     data-rowio-prefix="invoice_items"
+                     data-rowio-max="6"
+                     data-rowio-copy-down="vat"
+                     data-rowio-copy-down-class="btn btn-sm btn-outline-primary position-absolute top-0 end-0 me-3 py-2">
+                    <template class="rowio-template">
+                        <div class="row gx-2 align-items-start rowio-row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <input name="description" type="text" id="description" class="form-control" placeholder="Description">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <input name="qty" type="number" id="qty" class="form-control" placeholder="Qty">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <input name="price" type="text" id="price" class="form-control" placeholder="Price">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3 position-relative">
+                                    <select name="vat" id="vat" class="form-select w-75">
+                                        <option value="0">0%</option>
+                                        <option value="12">12%</option>
+                                        <option value="21">21%</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex gap-2">
+                                <button type="button" class="btn btn-soft-danger rowio-remove">&times;</button>
+                            </div>
+                        </div>
+
+                        <script type="application/json" class="rowio-data">
+                            [
+                                {"description":"Consulting", "qty": 2, "price":"1500", "vat":"21"},
+                                {"description":"Hosting", "qty": 1, "price":"299", "vat":"21"}
+                            ]
+                        </script>
+                    </template>
+
+                    <div class="rowio-rows"></div>
+
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <button type="button" class="btn btn-primary rowio-add">+</button>
+                        <span class="text-secondary small">max=6</span>
+                    </div>
+                </div>
+
+                <div class="demo-note mt-3">
+                    Try: Copy-down VAT. Try adding rows until max is reached.
+                </div>
+            </div>
+
+            <!-- 4) Contenteditable (HTML) -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <h2>4) <span class="code-inline">contenteditable="true"</span> field (HTML mode)</h2>
+                    <span class="pill">contenteditable + data-rowio-html</span>
+                </div>
+                <div class="demo-note">
+                    This demonstrates how Rowio treats <span class="code-inline">contenteditable="true"</span> elements as value carriers.
+                    <br />
+                    With <span class="code-inline">data-rowio-html="true"</span>, Rowio uses <span class="code-inline">innerHTML</span> (not <span class="code-inline">textContent</span>).
+                </div>
+
+                <div class="rowio mt-3" data-rowio-prefix="notes">
+                    <template class="rowio-template">
+                        <div class="row gx-2 align-items-start rowio-row">
+                            <div class="col-md-11">
+                                <div class="mb-3">
+                                    <div id="note" name="note"
+                                         class="contenteditable-box"
+                                         contenteditable="true"
+                                         data-rowio-html="true">
+                                        <em>Try typing <strong>HTML</strong> here…</em>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex gap-2">
+                                <button type="button" class="btn btn-soft-danger rowio-remove">&times;</button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="rowio-rows"></div>
+
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-primary rowio-add">+</button>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mt-3 mb-0">
+                    <strong>Security note:</strong>
+                    <br />
+                    Rowio does not sanitize HTML. If this content comes from users, sanitize on the server.
+                </div>
+            </div>
+
+        </div>
+        <div class="col-5">
+            <div class="demo-card position-sticky" style="top:1rem">
+                <div class="demo-title flex-column align-items-start mb-3">
+                    <h2>Event log (integration hooks)</h2>
+                </div>
+                <div class="demo-note">
+                    <p>
+                        Rowio emits events on the wrapper element.
+                    </p>
+                    <p>
+                        This log shows the sequence you can hook into (e.g. init plugins, re-init editors, custom validation, etc.).
+                    </p>
+                </div>
+                <div id="event_log" class="log-box mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="text-center text-secondary small pb-3">
+        Rowio Free demo page • Bootstrap 5 • No dependencies
+    </div>
 </div>
-
-
-
-
 </body>
 </html>

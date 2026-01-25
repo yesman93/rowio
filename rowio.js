@@ -475,7 +475,16 @@ Object.defineProperty(window, 'Rowio', {
                         add_row: function (data) {
 
                             if (this.max > 0 && this.get_rows_count() >= this.max) {
-                                console.info('Rowio instance add_row: Maximum number of rows reached', this);
+
+                                this._emit_event('rowio:max-rows-reached', {
+                                    instance: this,
+                                    max: this.max,
+                                    rows_count: this.get_rows_count(),
+                                    attempted_action: 'add_row',
+                                    row: null,
+                                    index: null,
+                                });
+
                                 return null;
                             }
 

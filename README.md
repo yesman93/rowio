@@ -1,204 +1,210 @@
-# Rowio
+# Rowio (Free)
 
-Rowio is a lightweight vanilla JavaScript library for building **repeatable form rows** from a `<template>`.
+Rowio is a lightweight, framework-agnostic JavaScript library for building **repeatable form rows** using the native `<template>` element.
 
-It is designed to be:
+It solves one specific problem:
 
-- framework-agnostic
-- dependency-free
-- fast (minimal initial HTML)
-- event-driven
+> Safely adding, removing, reindexing, and harvesting repeated form rows without magic.
 
-Rowio is suitable for admin panels, SaaS back offices, and complex forms where users need to add/remove rows dynamically.
-
-Rowio consists of:
-
-- **Rowio Free** – the open‑source JavaScript library (this repository)
-- **Rowio Pro** – optional backend helpers and advanced features
+Rowio Free focuses purely on **frontend behavior**. Backend helpers, validation, and calculations are provided by **Rowio Pro**.
 
 ---
 
-## Features (Free)
+## Features
 
-- Render rows from a single `<template>`
-- Unlimited rows (optional max limit)
-- Hard add/remove with **full reindexing** (`name`, `id`, `label[for]`)
-- Optional JSON prefill stored inside the template
-- Copy-down helper for selected fields
+- Vanilla JavaScript (no dependencies)
 - Multiple Rowio instances per page
-- Clean DOM events for easy integration
+- `<template>`-based row source
+- Hard remove + full reindex (names, ids, labels)
+- Optional JSON prefill
+- Copy-down controls (field-based)
+- Explicit DOM events for integrations
+- Works with any backend or framework
 
 ---
 
-## Features (Pro)
+## Installation
 
-Rowio Pro extends the core library with production-ready helpers:
+Download or include the script:
 
-- PHP **RowioHarvester** (extracts and cleans row data from request bags)
-- PHP **RowioValidator** (row-level and field-level validation)
-- Frontend validation helpers (Bootstrap 5 compatible by default)
-- Calculation helpers (pluggable callbacks with type normalization)
+```html
+<script src="rowio.js"></script>
+```
 
-Rowio Pro is distributed separately under a commercial license.
-
----
-
-## Requirements
-
-- Modern browser with ES6 support
-- No dependencies
+No build step required.
 
 ---
 
 ## Basic HTML Structure
 
+A working Rowio instance consists of:
+
+1. A wrapper with class `.rowio`
+2. A `<template class="rowio-template">` containing one `.rowio-row`
+3. An optional `.rowio-rows` container (auto-created if missing)
+4. Controls with `.rowio-add` and `.rowio-remove`
+
 ```html
 <div class="rowio" data-rowio-prefix="items">
 
   <template class="rowio-template">
-    <div class="rowio-row">
-      <input type="text" name="items__name__0" id="items__name__0">
-      <input type="number" name="items__qty__0" id="items__qty__0">
+    <div class="rowio-row row gx-2">
 
-      <button type="button" class="rowio-add">+</button>
-      <button type="button" class="rowio-remove">−</button>
+      <div class="col">
+        <input type="text" name="name" class="form-control" placeholder="Item name">
+      </div>
+
+      <div class="col">
+        <input type="number" name="qty" class="form-control" placeholder="Qty">
+      </div>
+
+      <div class="col-auto">
+        <button type="button" class="btn btn-danger rowio-remove">×</button>
+      </div>
+
     </div>
-
-    <script type="application/json" class="rowio-data">
-      [
-        {"name": "Item A", "qty": 1},
-        {"name": "Item B", "qty": 2}
-      ]
-    </script>
   </template>
 
-  <div class="rowio-rows"></div>
+  <button type="button" class="btn btn-primary rowio-add">Add row</button>
+
 </div>
 ```
 
----
+### Important
 
-## Naming Convention (Required)
-
-Rowio relies on this format:
-
-```
-prefix__field__index
-```
-
-Example:
+- Fields inside the template **must not be indexed**
+- Rowio will automatically convert them to:
 
 ```
-items__price__0
-items__price__1
-```
-
-Indexing always starts at **0** and is automatically reindexed after add/remove.
-
-This naming convention is required for compatibility with **Rowio Pro** backend helpers.
-
----
-
-## JavaScript Usage
-
-Rowio auto-initializes on DOM ready.
-
-You can access an instance by key (override key or prefix):
-
-```js
-const instance = window.Rowio.get('items');
-
-instance.add_row();
-instance.remove_row(0);
-const data = instance.get_data();
+items__name__0
+items__qty__0
+items__name__1
+items__qty__1
+...
 ```
 
 ---
 
-## Copy-Down Helper
+## Initialization
 
-Enable copy-down for specific fields:
+Initialization is manual by design.
 
 ```html
-<div class="rowio" data-rowio-prefix="items" data-rowio-copydown="price,vat">
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  Rowio.init();
+});
+</script>
 ```
 
-A copy-down control will appear next to those fields in the first row. Clicking it copies the value down to subsequent rows.
+You can also target a specific element or selector:
+
+```js
+Rowio.init('.rowio');
+Rowio.init(document.querySelector('.rowio'));
+Rowio.init(document.querySelectorAll('.rowio'));
+```
 
 ---
 
-## Events
+## Configuration (Data Attributes)
 
-Rowio emits DOM events on the wrapper element:
+Configured on the `.rowio` wrapper:
 
-- `rowio:ready`
-- `rowio:row-add`
-- `rowio:row-remove`
-- `rowio:copy-down`
-- `rowio:change`
+- `data-rowio-prefix` – **required**, input name prefix
+- `data-rowio-shown` – initial number of rows (default: 1)
+- `data-rowio-max` – maximum allowed rows (0 = unlimited)
+- `data-rowio-copy-down` – comma-separated field names
+- `data-rowio-copy-down-class` – CSS classes for copy-down buttons
 
-Each event provides a payload with:
+Optional on `<template>`:
 
-- `row` – the affected row element
-- `index` – row index
-- `fields` – inputs keyed by field name
-- `editors` – detected WYSIWYG candidates
+- `data-rowio-key` – override instance key
 
-Example:
+Optional on inputs / editors (`<input>`, `<select>`, `<textarea>` or `contenteditable="true"`):
 
-```js
-document.querySelector('.rowio')
-  .addEventListener('rowio:row-add', (e) => {
-    console.log(e.detail);
-  });
-```
+- `data-rowio-default` - default value for new rows
+- `data-rowio-html` - use `innerHTML` instead of `textContent` (for `contenteditable="true"`)
 
 ---
 
 ## JSON Prefill
 
-Rows can be prefilled using JSON placed **inside the template**:
+Rows can be prefilled by embedding JSON inside the template:
 
 ```html
-<script type="application/json" class="rowio-data">
-  [
-    {"name": "Service", "qty": 1}
-  ]
-</script>
+<template class="rowio-template">
+  <script type="application/json" class="rowio-data">
+    [
+      { "name": "Apple", "qty": 2 },
+      { "name": "Banana", "qty": 5 }
+    ]
+  </script>
+
+  <!-- row markup -->
+</template>
 ```
 
-If JSON is present, `data-rowio-shown` is ignored.
-
-⚠️ **Rowio does not sanitize JSON values.** Sanitize on the server if injecting user-generated content.
+> ⚠️ Rowio does **not** sanitize prefill data.
 
 ---
 
-## Server-Side Processing (Rowio Pro)
+## Events
 
-Rowio Pro provides framework-agnostic PHP helpers:
+Rowio emits `CustomEvent`s on the wrapper element:
 
-- `RowioHarvester` – detects `prefix__field__index` keys, assembles rows, and cleans request data
-- `RowioValidator` – validates row data (required fields, min/max rows, custom rules)
+- `rowio:ready` - after initialization
+- `rowio:row-add` - after a row is added and rows reindexed
+- `rowio:row-remove` - after a row is removed and rows reindexed
+- `rowio:copy-down` - after a copy-down action
+- `rowio:change` - after any change (add, remove, copy-down)
+- `rowio:max-rows-reached` - when trying to exceed max rows
 
-These helpers are designed to work with any PHP framework or custom application.
+Example:
+
+```js
+wrapper.addEventListener('rowio:change', e => {
+  const { row, index, fields } = e.detail;
+  // re-init plugins, recalc totals, validate, etc.
+});
+```
+
+---
+
+## Backend Handling
+
+Rowio Free only guarantees **correct naming and indexing**.
+
+Backend parsing, validation, normalization, and calculations are handled by **Rowio Pro**.
+
+---
+
+## Browser Support
+
+- Modern evergreen browsers
+- Requires `<template>` support
 
 ---
 
 ## License
 
-Rowio Free is released under the **MIT License**.
+MIT License
 
-Rowio Pro is distributed under a commercial license.
+---
+
+## Related
+
+- **Rowio Pro** – extended by validation, calculations and backend helpers
 
 ---
 
 ## Philosophy
 
-Rowio focuses on doing **one thing well**:
+Rowio is intentionally boring.
 
-> repeatable form rows, cleanly and predictably
+It does not guess, auto-submit, validate, or sanitize. It only guarantees one thing:
 
-Rowio Free stays small and transparent. Rowio Pro adds backend safety and advanced behavior where needed.
+> Repeatable rows that stay structurally correct.
 
-No frameworks, no magic, no lock-in.
+Everything else is your choice.
 
