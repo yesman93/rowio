@@ -1,4 +1,4 @@
-# Rowio (Free)
+# Rowio - a lightweight JavaScript library for building repeatable form rows (Free)
 
 Rowio is a lightweight, framework-agnostic JavaScript library for building **repeatable form rows** using the native `<template>` element.
 
